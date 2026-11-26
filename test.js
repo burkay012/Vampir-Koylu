@@ -113,6 +113,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(200);
   assert.equal(doc.st.me.lastProtected, pick);
   assert.equal(cl[0].st.phase, 'day');
+  // kurtarılan kişi kalkan animasyonu alır, başkası kimin kurtarıldığını öğrenemez
+  assert.equal(cl.find((c) => c.st.me.id === pick).st.event.savedMe, true);
+  for (const c of cl) { if (c.st.me.id !== pick) assert.equal(c.st.event.savedMe, false); assert.equal(c.st.event.savedId, undefined); }
   for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('skip-discussion');
   await wait(150);
   for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('vote', { target: 'skip' });

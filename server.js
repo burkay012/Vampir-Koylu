@@ -17,8 +17,8 @@ const NIGHT_TIMEOUT_MS = 3 * 60 * 1000; // gece en fazla 3 dk (uyuyakalan olursa
 const VOTE_TIMEOUT_MS = 2 * 60 * 1000; // oylama en fazla 2 dk
 const RESULT_TIMEOUT_MS = 20 * 1000; // oylama sonucu ekranı en fazla 20 sn
 
-function setEvent(room, type, victimId = null) {
-  room.event = { id: ++room.eventCounter, type, victimId };
+function setEvent(room, type, victimId = null, savedId = null) {
+  room.event = { id: ++room.eventCounter, type, victimId, savedId };
 }
 
 const rooms = new Map();
@@ -193,7 +193,7 @@ function resolveNight(room) {
     setEvent(room, 'kill', v.id);
   } else if (target) {
     text = 'Sabah oldu. Vampirler saldırdı ama Doktor kurbanı kurtardı. Kimse ölmedi.';
-    setEvent(room, 'saved');
+    setEvent(room, 'saved', null, target);
   } else {
     text = 'Sabah oldu. Gece kimse ölmedi.';
     setEvent(room, 'quiet');
@@ -289,7 +289,9 @@ function viewFor(room, me) {
     maxVampires: maxVampires(Math.max(room.players.size, MIN_PLAYERS)),
     minPlayers: MIN_PLAYERS,
     announcement: room.announcement,
-    event: room.event,
+    event: room.event
+      ? { id: room.event.id, type: room.event.type, victimId: room.event.victimId, savedMe: room.event.savedId === me.id }
+      : null,
     history: room.history,
     winner: room.winner,
     me: {
