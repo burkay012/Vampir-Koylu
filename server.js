@@ -16,7 +16,7 @@ const MAX_PLAYERS = 20;
 const NIGHT_TIMEOUT_MS = 3 * 60 * 1000; // gece en fazla 3 dk (uyuyakalan olursa)
 const VOTE_TIMEOUT_MS = 2 * 60 * 1000; // oylama en fazla 2 dk
 const RESULT_TIMEOUT_MS = 20 * 1000; // oylama sonucu ekranı en fazla 20 sn
-const SEER_FALSE_ALARM = 25; // Kâhin: masum birine bakınca %25 ihtimalle yanlışlıkla "şüpheli" görür
+const SEER_FALSE_ALARM = 33; // Kâhin: masum birine bakınca %33 ihtimalle yanlışlıkla "şüpheli" görür
 
 function setEvent(room, type, victimId = null, savedId = null) {
   room.event = { id: ++room.eventCounter, type, victimId, savedId };
