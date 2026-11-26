@@ -100,6 +100,35 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const v = cl.filter((c) => c.st.me.role === 'vampire')[0];
   assert.equal(v.st.players.filter((p) => p.role === 'vampire').length, 2); // vampirler birbirini görür
 
+  // doktor üst üste aynı kişiyi koruyamaz
+  cl[0].s.emit('play-again');
+  await wait(150);
+  cl[0].s.emit('settings', { vampires: 1 });
+  await wait(100);
+  cl[0].s.emit('start');
+  await wait(150);
+  const doc = cl.find((c) => c.st.me.role === 'doctor');
+  const pick = cl.find((c) => c !== doc && c.st.me.role !== 'vampire').st.me.id;
+  for (const c of cl) c.s.emit('night-action', { target: c === doc ? pick : (c.st.me.role === 'vampire' ? pick : doc.st.me.id) });
+  await wait(200);
+  assert.equal(doc.st.me.lastProtected, pick);
+  assert.equal(cl[0].st.phase, 'day');
+  for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('skip-discussion');
+  await wait(150);
+  for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('vote', { target: 'skip' });
+  await wait(150);
+  for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('continue');
+  await wait(200);
+  assert.equal(cl[0].st.phase, 'night');
+  let errMsg = null;
+  doc.s.once('err', (m) => (errMsg = m));
+  doc.s.emit('night-action', { target: pick });
+  await wait(150);
+  assert(errMsg && errMsg.includes('üst üste'), 'aynı kişi tekrar korunamamalı');
+  doc.s.emit('night-action', { target: doc.st.me.id }); // kendini koruyabilir
+  await wait(100);
+  assert.equal(doc.st.night.done, true);
+
   console.log('TÜM TESTLER GEÇTİ');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

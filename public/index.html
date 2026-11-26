@@ -334,7 +334,7 @@ function roleCard() {
   const txt = {
     vampire: 'Geceleri vampirlerle birlikte bir köylüyü öldür. Gündüz masum görünmeye çalış.',
     villager: 'Vampirleri bul ve oylamada ele.',
-    doctor: 'Her gece birini koru (kendini de seçebilirsin).',
+    doctor: 'Her gece birini koru (kendini de seçebilirsin). Aynı kişiyi üst üste iki gece koruyamazsın.',
     seer: 'Her gece birine bak: vampir mi değil mi öğren.',
   }[r];
   return `<div class="rolewrap"><div class="flipper ${holding ? 'flipped' : ''}" id="rolecard"
@@ -356,6 +356,9 @@ function peek(v, e) {
 function targets() {
   return S.players.filter((p) => p.alive && !(S.me.role === 'seer' && p.id === S.me.id) && !(S.me.role === 'vampire' && p.role === 'vampire'));
 }
+function blocked(p) {
+  return S.me.role === 'doctor' && p.id === S.me.lastProtected; // üst üste aynı kişi korunamaz
+}
 
 function renderNight() {
   const me = S.me;
@@ -371,7 +374,9 @@ function renderNight() {
       const t = S.players.find((p) => p.id === S.night.choice);
       html += `<div class="center">✔ Seçimin alındı${me.role === 'villager' ? '' : ': <b>' + esc(t ? t.name : '') + '</b>'}.<br><span class="mut">Diğerleri bekleniyor…</span></div>`;
     } else {
-      html += targets().map((p) => `<button class="choice ${sel === p.id ? 'sel' : ''}" onclick="pick('${p.id}')">${esc(p.name)}</button>`).join('');
+      html += targets().map((p) => blocked(p)
+        ? `<button class="choice" disabled>${esc(p.name)} <span class="mut">(geçen gece korundu)</span></button>`
+        : `<button class="choice ${sel === p.id ? 'sel' : ''}" onclick="pick('${p.id}')">${esc(p.name)}</button>`).join('');
       html += `<button ${sel ? '' : 'disabled'} onclick="emit('night-action',{target:sel})">Onayla</button>`;
     }
     html += '</div>';

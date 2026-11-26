@@ -117,6 +117,7 @@ function startGame(room) {
     p.alive = true;
     p.revealed = false;
     p.seerResults = [];
+    p.lastProtected = null;
   });
   room.day = 0;
   room.winner = null;
@@ -174,6 +175,7 @@ function resolveNight(room) {
 
   const doctor = a.find((p) => p.role === 'doctor');
   const protectedId = doctor ? room.actions[doctor.id] : null;
+  if (doctor) doctor.lastProtected = protectedId || null;
 
   // kâhin sonucu
   const seer = a.find((p) => p.role === 'seer');
@@ -298,6 +300,7 @@ function viewFor(room, me) {
       roleName: room.phase === 'lobby' ? null : ROLE_NAMES[me.role],
       alive: me.alive,
       seerResults: me.role === 'seer' ? me.seerResults : undefined,
+      lastProtected: me.role === 'doctor' ? me.lastProtected : undefined,
     },
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -419,6 +422,7 @@ io.on('connection', (socket) => {
     if (!t || !t.alive) return;
     if (player.role === 'vampire' && t.role === 'vampire') return err('Vampir arkadaşını seçemezsin.');
     if (player.role === 'seer' && t.id === player.id) return err('Kendine bakamazsın.');
+    if (player.role === 'doctor' && t.id === player.lastProtected) return err('Aynı kişiyi üst üste iki gece koruyamazsın.');
     room.actions[player.id] = t.id; // köylülerde sadece "sahte" seçim, etkisi yok
     broadcast(room);
     maybeAdvance(room);
@@ -463,6 +467,7 @@ io.on('connection', (socket) => {
       p.alive = true;
       p.revealed = false;
       p.seerResults = [];
+      p.lastProtected = null;
     }
     clampSettings(room);
     broadcast(room);
