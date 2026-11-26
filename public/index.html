@@ -204,6 +204,10 @@ function nightFx() {
   fx('<div class="moon">🌙</div><div class="ftitle">Gece çöktü</div><div class="fsub">Gözlerini kapat…</div>', 'night-fx', 2300);
   vib(120);
 }
+function introFx() {
+  fx('<div class="ftitle">🧛 Oyun başladı</div><div class="fsub">Rolünü gör, kimseye gösterme!</div>', 'vote-fx', 1800);
+  vib(150);
+}
 function voteFx() {
   fx('<div class="ftitle">🗳️ Oylama zamanı</div><div class="fsub">Şüphelendiğin kişiyi seç</div>', 'vote-fx', 1500);
 }
@@ -256,6 +260,7 @@ function transitions(prev, st) {
   else if (eventNew && ev.savedMe) { shieldFx(); shown = true; }
   else if (eventNew && nightEvent) { dawnFx(ev, victim); shown = true; }
   else if (fresh && st.phase === 'night') { nightFx(); shown = true; }
+  else if (fresh && st.phase === 'day' && st.intro) { introFx(); shown = true; }
   else if (fresh && st.phase === 'vote') { voteFx(); shown = true; }
 
   if (fresh && st.phase === 'over') setTimeout(() => confetti(st.winner), shown ? 2500 : 200);
@@ -427,12 +432,21 @@ function annCard() {
 
 function renderDay() {
   const me = S.me;
-  let html = `<div class="${A()}"><h1>☀️ Gün ${S.day}</h1>${annCard()}
-    <div class="card center"><div class="mut">Tartışma — yüz yüze konuşun!</div><div class="timer" id="timer"></div></div>`;
-  html += roleCard();
+  let html;
+  if (S.intro) {
+    html = `<div class="${A()}"><h1>🏘️ Köye hoş geldiniz</h1>
+      <div class="sub">Oyun başladı! Önce rolünü gör, sonra tanışıp konuşun. Henüz gece olmadı, kimse ölmez.</div>`;
+    html += roleCard();
+    html += `<div class="card center"><div class="mut">Tanışma ve sohbet</div><div class="timer" id="timer"></div></div>`;
+  } else {
+    html = `<div class="${A()}"><h1>☀️ Gün ${S.day}</h1>${annCard()}
+      <div class="card center"><div class="mut">Tartışma — yüz yüze konuşun!</div><div class="timer" id="timer"></div></div>`;
+    html += roleCard();
+  }
   if (me.role === 'seer' && me.seerResults.length) html += seerCard();
   if (me.alive) {
-    html += `<button class="sec" ${S.skippedByMe ? 'disabled' : ''} onclick="emit('skip-discussion')">${S.skippedByMe ? 'Oylama için hazırsın' : 'Oylamaya geçelim'} (${S.skipCount}/${S.needed})</button>`;
+    const label = S.intro ? 'Geceye geçelim' : 'Oylamaya geçelim';
+    html += `<button class="sec" ${S.skippedByMe ? 'disabled' : ''} onclick="emit('skip-discussion')">${S.skippedByMe ? 'Hazırsın, diğerleri bekleniyor' : label} (${S.skipCount}/${S.needed})</button>`;
   } else html += `<div class="card center">💀 Öldün. Sessizce izle, ipucu verme.</div>`;
   html += `<div class="card"><h2>Oyuncular</h2>${playerList(S.players)}</div>`;
   app.innerHTML = html + '</div>';
@@ -499,6 +513,7 @@ function render() {
   if (!S) return renderJoin();
   ({ lobby: renderLobby, night: renderNight, day: renderDay, vote: renderVote, result: renderResult, over: renderOver }[S.phase])();
   timerEl = document.getElementById('timer');
+  if (fresh) window.scrollTo(0, 0); // yeni ekran açılınca en üste dön
   fresh = false; // animasyon sadece sahne ilk çizildiğinde oynasın
 }
 

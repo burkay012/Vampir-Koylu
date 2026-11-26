@@ -60,6 +60,7 @@ function createRoom() {
     event: null, // son olay: animasyonları tetikler { id, type, victimId }
     eventCounter: 0,
     voteResult: null,
+    intro: false, // oyun başı tanışma günü (oylama ve ölüm yok)
     ready: new Set(),
     pendingWin: null,
     history: [],
@@ -126,7 +127,27 @@ function startGame(room) {
   room.announcement = null;
   room.event = null;
   room.voteResult = null;
-  startNight(room);
+  startIntro(room);
+}
+
+// Rolleri gördükten sonra oyun hemen geceye geçmez: önce herkes konuşup tanışsın.
+function startIntro(room) {
+  room.phase = 'day';
+  room.day = 0;
+  room.intro = true;
+  room.actions = {};
+  room.votes = {};
+  room.skipVotes = new Set();
+  setTimer(room, room.settings.discussionSec * 1000, () => endDiscussion(room));
+  broadcast(room);
+}
+
+function endDiscussion(room) {
+  if (room.phase !== 'day') return;
+  if (room.intro) {
+    room.intro = false;
+    startNight(room);
+  } else startVote(room);
 }
 
 function startNight(room) {
@@ -211,7 +232,7 @@ function resolveNight(room) {
 
   room.phase = 'day';
   room.skipVotes = new Set();
-  setTimer(room, room.settings.discussionSec * 1000, () => startVote(room));
+  setTimer(room, room.settings.discussionSec * 1000, () => endDiscussion(room));
   broadcast(room);
 }
 
@@ -273,7 +294,7 @@ function maybeAdvance(room) {
   if (room.phase === 'night') {
     if (alive(room).every((p) => room.actions[p.id])) resolveNight(room);
   } else if (room.phase === 'day') {
-    if (room.skipVotes.size > alive(room).length / 2) startVote(room);
+    if (room.skipVotes.size > alive(room).length / 2) endDiscussion(room);
   } else if (room.phase === 'vote') {
     if (alive(room).every((p) => room.votes[p.id])) resolveVote(room);
   } else if (room.phase === 'result') {
@@ -288,6 +309,7 @@ function viewFor(room, me) {
   const v = {
     code: room.code,
     phase: room.phase,
+    intro: room.intro,
     day: room.day,
     deadline: room.deadline,
     settings: room.settings,
@@ -465,6 +487,7 @@ io.on('connection', (socket) => {
     room.phase = 'lobby';
     room.day = 0;
     room.winner = null;
+    room.intro = false;
     room.announcement = null;
     room.event = null;
     room.voteResult = null;

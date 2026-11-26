@@ -4,6 +4,17 @@ const { server } = require('./server');
 const assert = require('assert');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// tanışma gününü geç (çoğunluk "geceye geçelim" der)
+async function skipIntro(cl) {
+  assert.equal(cl[0].st.phase, 'day');
+  assert.equal(cl[0].st.intro, true);
+  assert.equal(cl[0].st.day, 0);
+  for (const c of cl) c.s.emit('skip-discussion');
+  await wait(200);
+  assert.equal(cl[0].st.phase, 'night');
+  assert.equal(cl[0].st.intro, false);
+  assert.equal(cl[0].st.day, 1);
+}
 
 (async () => {
   await new Promise((r) => server.listen(0, r));
@@ -44,6 +55,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.equal(roles.filter((r) => r === 'villager').length, 3);
   // başkasının rolü sızmıyor
   for (const c of cl) for (const p of c.st.players) if (p.id !== c.st.me.id) assert.equal(p.role, undefined);
+
+  // oyun hemen geceye geçmez: önce tanışma günü, kimse ölmez, oylama yok
+  assert.equal(cl[0].st.phase, 'day');
+  assert.equal(cl[0].st.intro, true);
+  cl[0].s.emit('skip-discussion'); // tek kişi yetmez (çoğunluk gerekir)
+  await wait(150);
+  assert.equal(cl[0].st.phase, 'day');
+  await skipIntro(cl);
 
   let round = 0;
   while (cl[0].st.phase !== 'over') {
@@ -106,12 +125,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.equal(v.st.players.filter((p) => p.role === 'vampire').length, 2); // vampirler birbirini görür
 
   // doktor üst üste aynı kişiyi koruyamaz
-  cl[0].s.emit('play-again');
-  await wait(150);
-  cl[0].s.emit('settings', { vampires: 1 });
-  await wait(100);
-  cl[0].s.emit('start');
-  await wait(150);
+  await skipIntro(cl);
   const doc = cl.find((c) => c.st.me.role === 'doctor');
   const pick = cl.find((c) => c !== doc && c.st.me.role !== 'vampire').st.me.id;
   for (const c of cl) c.s.emit('night-action', { target: c === doc ? pick : (c.st.me.role === 'vampire' ? pick : doc.st.me.id) });

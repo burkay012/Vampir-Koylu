@@ -6,10 +6,11 @@ Moderatörsüz Vampir Köylü oyunu. Herkes kendi telefonundan oda koduyla girer
 1. Biri "Yeni oda kur" der, 4 harfli kodu paylaşır. Diğerleri "Odaya katıl" ile girer.
 2. Oda kurucusu **vampir sayısını** (varsayılan 1), Doktor/Kâhin rollerini ve tartışma süresini ayarlar. Minimum 4 oyuncu.
 3. Herkes rolünü ekranda **basılı tutarak** görür.
-4. **Gece:** vampirler kurban seçer, Doktor korur (aynı kişiyi üst üste iki gece koruyamaz, kendini koruyabilir), Kâhin bir kişiye bakar: vampir her zaman "Şüpheli", masum biri çoğunlukla "Temiz" çıkar ama %33 ihtimalle yanlışlıkla "Şüpheli" görünür ("Temiz" kesindir). Özel rolü olmayanlar da sahte bir seçim yapar, böylece kimin rolü olduğu anlaşılmaz.
-5. **Gün:** yüz yüze tartışılır. Çoğunluk "oylamaya geçelim" derse veya süre dolarsa oylama başlar.
-6. **Oylama:** en çok oyu alan elenir, rolü açıklanır. Eşitlikte veya "kimseyi eleme" çoğunluktaysa kimse elenmez. Her oylamadan sonra herkes **sonuç ekranını** görür: kim kime oy verdi, oy çubukları ve elenenin rolü. Herkes "Devam"a basınca (veya 20 sn sonra) oyun sürer. Oylama en fazla 2 dakika sürer.
-7. Tüm vampirler elenirse köy, vampirler köylülere eşitlenirse vampirler kazanır.
+4. **Tanışma günü:** rolleri gördükten sonra oyun hemen geceye geçmez. Herkes konuşup tanışır, kimse ölmez, oylama yoktur. Çoğunluk "Geceye geçelim" derse ya da süre (tartışma süresi ayarı) dolarsa ilk gece başlar.
+5. **Gece:** vampirler kurban seçer, Doktor korur (aynı kişiyi üst üste iki gece koruyamaz, kendini koruyabilir), Kâhin bir kişiye bakar: vampir her zaman "Şüpheli", masum biri çoğunlukla "Temiz" çıkar ama %33 ihtimalle yanlışlıkla "Şüpheli" görünür ("Temiz" kesindir). Özel rolü olmayanlar da sahte bir seçim yapar, böylece kimin rolü olduğu anlaşılmaz.
+6. **Gün:** yüz yüze tartışılır. Çoğunluk "oylamaya geçelim" derse veya süre dolarsa oylama başlar.
+7. **Oylama:** en çok oyu alan elenir, rolü açıklanır. Eşitlikte veya "kimseyi eleme" çoğunluktaysa kimse elenmez. Her oylamadan sonra herkes **sonuç ekranını** görür: kim kime oy verdi, oy çubukları ve elenenin rolü. Herkes "Devam"a basınca (veya 20 sn sonra) oyun sürer. Oylama en fazla 2 dakika sürer.
+8. Tüm vampirler elenirse köy, vampirler köylülere eşitlenirse vampirler kazanır.
 
 **Animasyonlar:** gece/gün geçişleri, ölen oyuncuya özel "ÖLDÜN" ekranı (titreşimli), dönen rol kartı, oy çubukları, kazanan konfetisi.
 
