@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#120b1f">
+<title>Vampir Köylü</title>
+<style>
+  :root { --bg:#120b1f; --card:#1e1431; --line:#35264f; --txt:#efe9fa; --mut:#9d8fb8; --red:#e0344f; --grn:#3fb27f; --gold:#e6b84a; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh; }
+  #app { max-width:480px; margin:0 auto; padding:16px 16px 40px; }
+  h1 { font-size:28px; text-align:center; margin:24px 0 4px; }
+  h2 { font-size:20px; margin:0 0 10px; }
+  .sub { color:var(--mut); text-align:center; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  input[type=text] { width:100%; padding:14px; font-size:18px; border-radius:10px; border:1px solid var(--line); background:#150d24; color:var(--txt); margin:6px 0; }
+  input.code { text-transform:uppercase; letter-spacing:6px; text-align:center; font-size:24px; }
+  button { width:100%; padding:14px; font-size:17px; font-weight:600; border:0; border-radius:10px; background:var(--red); color:#fff; margin:6px 0; cursor:pointer; }
+  button.sec { background:#3a2b57; }
+  button:disabled { opacity:.4; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .pill { padding:2px 10px; border-radius:99px; font-size:13px; background:#3a2b57; color:var(--mut); }
+  .pill.host { background:var(--gold); color:#2a1d00; }
+  .big { font-size:42px; letter-spacing:8px; text-align:center; font-weight:800; margin:4px 0; }
+  .center { text-align:center; }
+  .mut { color:var(--mut); font-size:14px; }
+  .player { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  .player:last-child { border-bottom:0; }
+  .dead { opacity:.45; text-decoration:line-through; }
+  .off { opacity:.5; }
+  .choice { text-align:left; background:#2b1f45; border:2px solid transparent; }
+  .choice.sel { border-color:var(--gold); }
+  .choice.vamp { border-color:var(--red); }
+  .stepper { display:flex; align-items:center; gap:12px; }
+  .stepper button { width:48px; margin:0; background:#3a2b57; }
+  .stepper b { font-size:24px; min-width:30px; text-align:center; }
+  .role { text-align:center; padding:30px 10px; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .role .name { font-size:34px; font-weight:800; }
+  .vamp-txt { color:var(--red); } .good-txt { color:var(--grn); }
+  .night { background:#07040e; }
+  .ann { background:#2a1830; border-color:#5a2a4a; font-size:18px; }
+  .timer { font-size:30px; font-weight:800; text-align:center; font-variant-numeric:tabular-nums; }
+  .err { position:fixed; left:12px; right:12px; top:12px; background:var(--red); padding:12px; border-radius:10px; z-index:10; text-align:center; }
+  label.chk { display:flex; align-items:center; gap:10px; padding:8px 0; }
+  label.chk input { width:22px; height:22px; }
+  .hist div { padding:3px 0; font-size:14px; color:var(--mut); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="err" class="err" style="display:none"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const app = document.getElementById('app');
+let S = null;            // sunucudan gelen son durum
+let sel = null;          // seçili hedef (onaylanmadan önce)
+let holding = false;     // rol gösterme tuşu basılı mı
+let timerEl = null;
+let joinMode = 'menu';
+let lastPhaseKey = '';
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const save = (token, code) => localStorage.setItem('vk', JSON.stringify({ token, code }));
+const load = () => { try { return JSON.parse(localStorage.getItem('vk')); } catch { return null; } };
+
+function tryRejoin() {
+  const s = load();
+  if (s) socket.emit('rejoin', s);
+}
+socket.on('connect', tryRejoin);
+socket.on('rejoin-failed', () => { localStorage.removeItem('vk'); S = null; render(); });
+socket.on('joined', ({ token, code }) => save(token, code));
+socket.on('state', (st) => {
+  const key = st.phase + ':' + st.day;
+  if (key !== lastPhaseKey) { sel = null; holding = false; lastPhaseKey = key; if (navigator.vibrate && st.phase !== 'lobby') navigator.vibrate(200); }
+  S = st; render();
+});
+socket.on('err', (m) => {
+  const e = document.getElementById('err');
+  e.textContent = m; e.style.display = 'block';
+  setTimeout(() => (e.style.display = 'none'), 3000);
+});
+
+const emit = (ev, d) => socket.emit(ev, d);
+
+function renderJoin() {
+  const name = (document.getElementById('name') || {}).value || localStorage.getItem('vk-name') || '';
+  app.innerHTML = `
+    <h1>🧛 Vampir Köylü</h1>
+    <div class="sub">Moderatörsüz, telefondan oyna</div>
+    <div class="card">
+      <input type="text" id="name" placeholder="İsmin" maxlength="14" value="${esc(name)}">
+      ${joinMode === 'join' ? `
+        <input type="text" id="code" class="code" placeholder="ODA KODU" maxlength="4" autocapitalize="characters">
+        <button onclick="doJoin()">Katıl</button>
+        <button class="sec" onclick="joinMode='menu';render()">Geri</button>
+      ` : `
+        <button onclick="doCreate()">Yeni oda kur</button>
+        <button class="sec" onclick="joinMode='join';render()">Odaya katıl</button>
+      `}
+    </div>`;
+}
+function nm() { const v = document.getElementById('name').value; localStorage.setItem('vk-name', v); return v; }
+function doCreate() { emit('create', { name: nm() }); }
+function doJoin() { emit('join', { name: nm(), code: document.getElementById('code').value }); }
+
+function playerList(players, opts = {}) {
+  return players.map((p) => `
+    <div class="player ${p.alive ? '' : 'dead'} ${p.connected ? '' : 'off'}">
+      <span>${esc(p.name)}${p.id === S.me.id ? ' (sen)' : ''}${p.connected ? '' : ' 📴'}</span>
+      <span>${p.roleName ? `<span class="pill ${p.role === 'vampire' ? 'vamp-txt' : ''}">${p.roleName}</span>` : ''}${opts.host === p.id ? ' <span class="pill host">kurucu</span>' : ''}</span>
+    </div>`).join('');
+}
+
+function renderLobby() {
+  const s = S.settings, n = S.players.length, h = S.me.isHost;
+  const hostId = (S.players.find((p) => false) || {}).id;
+  app.innerHTML = `
+    <h1>Oda kodu</h1>
+    <div class="big">${S.code}</div>
+    <div class="sub">Arkadaşların bu kodla katılsın</div>
+    <div class="card">
+      <h2>Oyuncular (${n})</h2>
+      ${playerList(S.players)}
+    </div>
+    <div class="card">
+      <h2>Oyun ayarları</h2>
+      <div class="row"><span>Vampir sayısı</span>
+        <div class="stepper">
+          <button ${h ? '' : 'disabled'} onclick="setS({vampires:${s.vampires - 1}})">−</button>
+          <b>${s.vampires}</b>
+          <button ${h ? '' : 'disabled'} onclick="setS({vampires:${s.vampires + 1}})">+</button>
+        </div></div>
+      <div class="mut">${n} kişiyle en fazla ${Math.max(1, Math.ceil(Math.max(n, S.minPlayers) / 2) - 1)} vampir</div>
+      <label class="chk"><input type="checkbox" ${s.doctor ? 'checked' : ''} ${h ? '' : 'disabled'} onchange="setS({doctor:this.checked})"> Doktor</label>
+      <label class="chk"><input type="checkbox" ${s.seer ? 'checked' : ''} ${h ? '' : 'disabled'} onchange="setS({seer:this.checked})"> Kâhin</label>
+      <div class="row"><span>Tartışma süresi</span>
+        <div class="stepper">
+          <button ${h ? '' : 'disabled'} onclick="setS({discussionSec:${s.discussionSec - 60}})">−</button>
+          <b>${s.discussionSec / 60}</b><span class="mut">dk</span>
+          <button ${h ? '' : 'disabled'} onclick="setS({discussionSec:${s.discussionSec + 60}})">+</button>
+        </div></div>
+      ${h ? '' : '<div class="mut">Ayarları oda kurucusu değiştirir.</div>'}
+    </div>
+    ${h ? `<button onclick="emit('start')" ${n < S.minPlayers ? 'disabled' : ''}>${n < S.minPlayers ? `En az ${S.minPlayers} kişi gerekli` : 'Oyunu başlat'}</button>`
+        : '<div class="center mut">Kurucunun oyunu başlatması bekleniyor…</div>'}
+    <button class="sec" onclick="leave()">Odadan çık</button>`;
+}
+function setS(o) { emit('settings', o); }
+function leave() { emit('leave'); localStorage.removeItem('vk'); S = null; joinMode = 'menu'; render(); }
+
+function roleCard() {
+  const r = S.me.role;
+  const txt = {
+    vampire: 'Geceleri vampirlerle birlikte bir köylüyü öldür. Gündüz masum görünmeye çalış.',
+    villager: 'Vampirleri bul ve oylamada ele.',
+    doctor: 'Her gece birini koru (kendini de seçebilirsin).',
+    seer: 'Her gece birine bak: vampir mi değil mi öğren.',
+  }[r];
+  return `<div class="card role" id="rolecard" ontouchstart="peek(true)" ontouchend="peek(false)" ontouchcancel="peek(false)" onmousedown="peek(true)" onmouseup="peek(false)" onmouseleave="peek(false)">
+    ${holding
+      ? `<div class="mut">Rolün</div><div class="name ${r === 'vampire' ? 'vamp-txt' : 'good-txt'}">${S.me.roleName}</div><div class="mut" style="margin-top:8px">${txt}</div>`
+      : `<div class="name">🂠</div><div class="mut">Rolünü görmek için basılı tut</div>`}
+  </div>`;
+}
+function peek(v) { holding = v; const c = document.getElementById('rolecard'); if (c) { const w = c.outerHTML; c.outerHTML = roleCard(); } }
+
+function targets() {
+  return S.players.filter((p) => p.alive && !(S.me.role === 'seer' && p.id === S.me.id) && !(S.me.role === 'vampire' && p.role === 'vampire'));
+}
+
+function renderNight() {
+  document.body.classList.add('night');
+  const me = S.me;
+  let html = `<h1>🌙 Gece ${S.day}</h1><div class="sub">Herkes gözlerini kapatsın, telefonunuza bakın</div>`;
+  html += roleCard();
+  if (!me.alive) {
+    html += `<div class="card center">☠️ Öldün. Geceyi izliyorsun.</div>`;
+  } else {
+    const prompt = { vampire: 'Bu gece kimi öldürelim?', doctor: 'Bu gece kimi koruyorsun?', seer: 'Kimin vampir olup olmadığına bakmak istiyorsun?', villager: 'Uyuyorsun… (rolün olmasa da birini seç ki kimse anlamasın)' }[me.role];
+    const done = S.night.done;
+    html += `<div class="card"><h2>${prompt}</h2>`;
+    if (done) {
+      const t = S.players.find((p) => p.id === S.night.choice);
+      html += `<div class="center">✔ Seçimin alındı${me.role === 'villager' ? '' : ': <b>' + esc(t ? t.name : '') + '</b>'}.<br><span class="mut">Diğerleri bekleniyor…</span></div>`;
+    } else {
+      html += targets().map((p) => `<button class="choice ${sel === p.id ? 'sel' : ''}" onclick="pick('${p.id}')">${esc(p.name)}</button>`).join('');
+      html += `<button ${sel ? '' : 'disabled'} onclick="emit('night-action',{target:sel})">Onayla</button>`;
+    }
+    html += '</div>';
+    if (me.role === 'vampire' && S.night.vampVotes && S.night.vampVotes.length) {
+      html += `<div class="card"><div class="mut">Vampir oyları</div>` + S.night.vampVotes.map((v) => {
+        const t = S.players.find((p) => p.id === v.target); return `<div>${esc(v.by)} → <b>${esc(t ? t.name : '?')}</b></div>`; }).join('') + '</div>';
+    }
+  }
+  if (me.role === 'seer' && me.seerResults && me.seerResults.length) html += seerCard();
+  app.innerHTML = html;
+}
+function pick(id) { sel = id; render(); }
+
+function seerCard() {
+  return `<div class="card"><div class="mut">Kâhin notların</div>` + S.me.seerResults.map((r) =>
+    `<div>Gece ${r.day}: ${esc(r.name)} → <b class="${r.vampire ? 'vamp-txt' : 'good-txt'}">${r.vampire ? 'VAMPİR' : 'Vampir değil'}</b></div>`).join('') + '</div>';
+}
+
+function annCard() { return S.announcement ? `<div class="card ann">${esc(S.announcement)}</div>` : ''; }
+
+function renderDay() {
+  const me = S.me;
+  let html = `<h1>☀️ Gün ${S.day}</h1>${annCard()}
+    <div class="card center"><div class="mut">Tartışma — yüz yüze konuşun!</div><div class="timer" id="timer"></div></div>`;
+  html += roleCard();
+  if (me.role === 'seer' && me.seerResults.length) html += seerCard();
+  if (me.alive) {
+    html += `<button class="sec" ${S.skippedByMe ? 'disabled' : ''} onclick="emit('skip-discussion')">${S.skippedByMe ? 'Oylama için hazırsın' : 'Oylamaya geçelim'} (${S.skipCount}/${S.needed})</button>`;
+  } else html += `<div class="card center">☠️ Elendin. Sessizce izle, ipucu verme.</div>`;
+  html += `<div class="card"><h2>Oyuncular</h2>${playerList(S.players)}</div>`;
+  app.innerHTML = html;
+}
+
+function renderVote() {
+  const me = S.me;
+  let html = `<h1>🗳️ Oylama</h1>${annCard()}`;
+  html += roleCard();
+  if (!me.alive) html += `<div class="card center">☠️ Elendin, oy veremezsin.</div>`;
+  else if (S.vote.mine) {
+    html += `<div class="card center">✔ Oyun alındı.<br><span class="mut">Diğerleri bekleniyor…</span></div>`;
+  } else {
+    html += `<div class="card"><h2>Kimi eleyelim?</h2>` +
+      S.players.filter((p) => p.alive && p.id !== me.id).map((p) => `<button class="choice ${sel === p.id ? 'sel' : ''}" onclick="pick('${p.id}')">${esc(p.name)}</button>`).join('') +
+      `<button class="choice ${sel === 'skip' ? 'sel' : ''}" onclick="pick('skip')">Kimseyi eleme</button>
+       <button ${sel ? '' : 'disabled'} onclick="emit('vote',{target:sel})">Oyu onayla</button></div>`;
+  }
+  html += `<div class="center mut">${S.vote.count}/${S.vote.total} kişi oy verdi</div>`;
+  app.innerHTML = html;
+}
+
+function renderOver() {
+  const w = S.winner === 'village';
+  let html = `<h1>${w ? '🏘️ Köy kazandı!' : '🧛 Vampirler kazandı!'}</h1>${annCard()}
+    <div class="card"><h2>Roller</h2>${playerList(S.players)}</div>
+    <div class="card hist"><h2>Oyun özeti</h2>${S.history.map((h) => `<div>${esc(h)}</div>`).join('')}</div>`;
+  html += S.me.isHost ? `<button onclick="emit('play-again')">Tekrar oyna (aynı oda)</button>` : '<div class="center mut">Kurucu yeni oyunu başlatabilir.</div>';
+  app.innerHTML = html;
+}
+
+function render() {
+  document.body.classList.remove('night');
+  timerEl = null;
+  if (!S) return renderJoin();
+  ({ lobby: renderLobby, night: renderNight, day: renderDay, vote: renderVote, over: renderOver }[S.phase])();
+  timerEl = document.getElementById('timer');
+}
+
+setInterval(() => {
+  if (timerEl && S && S.deadline) {
+    const left = Math.max(0, Math.round((S.deadline - Date.now()) / 1000));
+    timerEl.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+  }
+}, 500);
+
+render();
+</script>
+</body>
+</html>
