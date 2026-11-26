@@ -16,6 +16,7 @@ const MAX_PLAYERS = 20;
 const NIGHT_TIMEOUT_MS = 3 * 60 * 1000; // gece en fazla 3 dk (uyuyakalan olursa)
 const VOTE_TIMEOUT_MS = 2 * 60 * 1000; // oylama en fazla 2 dk
 const RESULT_TIMEOUT_MS = 20 * 1000; // oylama sonucu ekranı en fazla 20 sn
+const SEER_FALSE_ALARM = 25; // Kâhin: masum birine bakınca %25 ihtimalle yanlışlıkla "şüpheli" görür
 
 function setEvent(room, type, victimId = null, savedId = null) {
   room.event = { id: ++room.eventCounter, type, victimId, savedId };
@@ -181,7 +182,11 @@ function resolveNight(room) {
   const seer = a.find((p) => p.role === 'seer');
   if (seer) {
     const t = room.players.get(room.actions[seer.id]);
-    if (t) seer.seerResults.push({ name: t.name, vampire: t.role === 'vampire', day: room.day });
+    // vampir her zaman "şüpheli"; masum biri bazen yanlışlıkla şüpheli çıkar. "Temiz" sonucu ise kesindir.
+    if (t) {
+      const suspicious = t.role === 'vampire' || crypto.randomInt(100) < SEER_FALSE_ALARM;
+      seer.seerResults.push({ name: t.name, suspicious, day: room.day });
+    }
   }
 
   let text;

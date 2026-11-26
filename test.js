@@ -62,7 +62,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(cl[0].st.phase, 'day');
     console.log('sabah:', cl[0].st.announcement);
     const seer = cl.find((c) => c.st.me.role === 'seer');
-    if (seer.st.me.alive) assert(seer.st.me.seerResults.length >= 1);
+    if (seer.st.me.alive) {
+      assert(seer.st.me.seerResults.length >= 1);
+      const last = seer.st.me.seerResults[seer.st.me.seerResults.length - 1];
+      assert.equal(typeof last.suspicious, 'boolean');
+      if (last.name === vamp.name) assert.equal(last.suspicious, true, 'vampir her zaman şüpheli çıkmalı');
+    }
     // çoğunluk oylamaya geçmek ister
     for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('skip-discussion');
     await wait(150);
