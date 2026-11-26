@@ -8,8 +8,10 @@ Moderatörsüz Vampir Köylü oyunu. Herkes kendi telefonundan oda koduyla girer
 3. Herkes rolünü ekranda **basılı tutarak** görür.
 4. **Gece:** vampirler kurban seçer, Doktor korur, Kâhin bir kişiye bakar. Özel rolü olmayanlar da sahte bir seçim yapar, böylece kimin rolü olduğu anlaşılmaz.
 5. **Gün:** yüz yüze tartışılır. Çoğunluk "oylamaya geçelim" derse veya süre dolarsa oylama başlar.
-6. **Oylama:** en çok oyu alan elenir, rolü açıklanır. Eşitlikte veya "kimseyi eleme" çoğunluktaysa kimse elenmez.
+6. **Oylama:** en çok oyu alan elenir, rolü açıklanır. Eşitlikte veya "kimseyi eleme" çoğunluktaysa kimse elenmez. Her oylamadan sonra herkes **sonuç ekranını** görür: kim kime oy verdi, oy çubukları ve elenenin rolü. Herkes "Devam"a basınca (veya 20 sn sonra) oyun sürer. Oylama en fazla 2 dakika sürer.
 7. Tüm vampirler elenirse köy, vampirler köylülere eşitlenirse vampirler kazanır.
+
+**Animasyonlar:** gece/gün geçişleri, ölen oyuncuya özel "ÖLDÜN" ekranı (titreşimli), dönen rol kartı, oy çubukları, kazanan konfetisi.
 
 Telefon kapanıp ekran kilitlenirse sayfa yeniden açıldığında oyuna otomatik geri dönülür.
 

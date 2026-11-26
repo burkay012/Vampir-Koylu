@@ -70,13 +70,23 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const alive2 = cl.filter((c) => c.st.me.alive);
     for (const c of alive2) c.s.emit('vote', { target: c === vamp ? alive2.find((x) => x !== vamp).st.me.id : vamp.st.me.id });
     await wait(200);
-    console.log('oylama:', cl[0].st.announcement);
+    // yeni: oylama sonucu ekranı
+    assert.equal(cl[0].st.phase, 'result');
+    const R = cl[0].st.voteResult;
+    assert(R.rows.length >= 1 && R.rows[0].voters.length >= 1, 'kim kime oy verdi görünmeli');
+    assert(cl[0].st.event && cl[0].st.event.type.startsWith('vote'));
+    console.log('oylama:', R.text, '| oylar:', R.rows.map((r) => `${r.name}←${r.voters.join('+')}`).join(', '));
+    // herkes devam derse sonraki aşamaya geçer
+    for (const c of cl.filter((c) => c.st.me.alive)) c.s.emit('continue');
+    await wait(200);
   }
   assert.equal(cl[0].st.phase, 'over');
   console.log('kazanan:', cl[0].st.winner);
   assert.equal(cl[0].st.winner, 'village');
   assert(cl[0].st.players.every((p) => p.role)); // bitişte herkesin rolü açık
 
+  // gece ölümü olayı animasyon için kayıtlı olmalı
+  assert(cl[0].st.event);
   cl[0].s.emit('play-again');
   await wait(150);
   assert.equal(cl[0].st.phase, 'lobby');

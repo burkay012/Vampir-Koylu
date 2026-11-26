@@ -14,6 +14,12 @@ app.get('/health', (_req, res) => res.send('ok'));
 const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 20;
 const NIGHT_TIMEOUT_MS = 3 * 60 * 1000; // gece en fazla 3 dk (uyuyakalan olursa)
+const VOTE_TIMEOUT_MS = 2 * 60 * 1000; // oylama en fazla 2 dk
+const RESULT_TIMEOUT_MS = 20 * 1000; // oylama sonucu ekranı en fazla 20 sn
+
+function setEvent(room, type, victimId = null) {
+  room.event = { id: ++room.eventCounter, type, victimId };
+}
 
 const rooms = new Map();
 
@@ -50,6 +56,11 @@ function createRoom() {
     votes: {}, // gün oylaması
     skipVotes: new Set(),
     announcement: null,
+    event: null, // son olay: animasyonları tetikler { id, type, victimId }
+    eventCounter: 0,
+    voteResult: null,
+    ready: new Set(),
+    pendingWin: null,
     history: [],
     winner: null,
     deadline: null,
@@ -111,6 +122,8 @@ function startGame(room) {
   room.winner = null;
   room.history = [];
   room.announcement = null;
+  room.event = null;
+  room.voteResult = null;
   startNight(room);
 }
 
@@ -175,10 +188,13 @@ function resolveNight(room) {
     v.alive = false;
     v.revealed = true;
     text = `Sabah oldu. ${v.name} gece vampirler tarafından öldürüldü. Rolü: ${ROLE_NAMES[v.role]}.`;
+    setEvent(room, 'kill', v.id);
   } else if (target) {
     text = 'Sabah oldu. Vampirler saldırdı ama Doktor kurbanı kurtardı. Kimse ölmedi.';
+    setEvent(room, 'saved');
   } else {
     text = 'Sabah oldu. Gece kimse ölmedi.';
+    setEvent(room, 'quiet');
   }
   room.announcement = text;
   room.history.push(`Gece ${room.day}: ${text.replace('Sabah oldu. ', '')}`);
@@ -196,35 +212,53 @@ function startVote(room) {
   if (room.phase !== 'day') return;
   room.phase = 'vote';
   room.votes = {};
-  clearTimer(room);
+  setTimer(room, VOTE_TIMEOUT_MS, () => resolveVote(room));
   broadcast(room);
 }
 
 function resolveVote(room) {
   if (room.phase !== 'vote') return;
   const tally = {};
-  let skips = 0;
+  const skipVoters = [];
   for (const p of alive(room)) {
     const v = room.votes[p.id];
-    if (!v || v === 'skip') skips++;
-    else tally[v] = (tally[v] || 0) + 1;
+    if (!v || v === 'skip') skipVoters.push(p.name);
+    else (tally[v] = tally[v] || []).push(p.name);
   }
-  const entries = Object.entries(tally);
-  const max = entries.length ? Math.max(...entries.map(([, c]) => c)) : 0;
-  const top = entries.filter(([, c]) => c === max).map(([id]) => id);
+  const rows = Object.entries(tally)
+    .map(([id, voters]) => ({ id, name: room.players.get(id).name, voters }))
+    .sort((a, b) => b.voters.length - a.voters.length);
+  const max = rows.length ? rows[0].voters.length : 0;
+  const top = rows.filter((r) => r.voters.length === max);
+
   let text;
-  if (max === 0 || top.length > 1 || skips >= max) {
+  let victimId = null;
+  if (max === 0 || top.length > 1 || skipVoters.length >= max) {
     text = top.length > 1 ? 'Oylar eşit çıktı, kimse elenmedi.' : 'Köy kimseyi elemeye karar vermedi.';
+    setEvent(room, 'vote-none');
   } else {
-    const v = room.players.get(top[0]);
+    const v = room.players.get(top[0].id);
     v.alive = false;
     v.revealed = true;
+    victimId = v.id;
     text = `Köy oylamasıyla ${v.name} elendi. Rolü: ${ROLE_NAMES[v.role]}.`;
+    setEvent(room, 'vote-out', v.id);
   }
+  room.voteResult = { rows, skipVoters, victimId, text };
   room.announcement = text;
-  room.history.push(`Gün ${room.day}: ${text}`);
-  const w = checkWin(room);
-  if (w) return endGame(room, w);
+  const summary = rows.map((r) => `${r.name} ${r.voters.length}`).join(', ');
+  room.history.push(`Gün ${room.day}: ${text}${summary ? ` (Oylar: ${summary})` : ''}`);
+
+  room.pendingWin = checkWin(room);
+  room.phase = 'result';
+  room.ready = new Set();
+  setTimer(room, RESULT_TIMEOUT_MS, () => finishResult(room));
+  broadcast(room);
+}
+
+function finishResult(room) {
+  if (room.phase !== 'result') return;
+  if (room.pendingWin) return endGame(room, room.pendingWin);
   startNight(room);
 }
 
@@ -235,6 +269,8 @@ function maybeAdvance(room) {
     if (room.skipVotes.size > alive(room).length / 2) startVote(room);
   } else if (room.phase === 'vote') {
     if (alive(room).every((p) => room.votes[p.id])) resolveVote(room);
+  } else if (room.phase === 'result') {
+    if (alive(room).every((p) => room.ready.has(p.id))) finishResult(room);
   }
 }
 
@@ -251,6 +287,7 @@ function viewFor(room, me) {
     maxVampires: maxVampires(Math.max(room.players.size, MIN_PLAYERS)),
     minPlayers: MIN_PLAYERS,
     announcement: room.announcement,
+    event: room.event,
     history: room.history,
     winner: room.winner,
     me: {
@@ -284,6 +321,10 @@ function viewFor(room, me) {
     v.skipCount = room.skipVotes.size;
     v.skippedByMe = room.skipVotes.has(me.id);
     v.needed = Math.floor(alive(room).length / 2) + 1;
+  }
+  if (room.phase === 'result') {
+    v.voteResult = room.voteResult;
+    v.ready = { count: room.ready.size, total: alive(room).length, mine: room.ready.has(me.id) };
   }
   if (room.phase === 'vote') {
     v.vote = {
@@ -401,12 +442,21 @@ io.on('connection', (socket) => {
     maybeAdvance(room);
   });
 
+  socket.on('continue', () => {
+    if (!room || room.phase !== 'result' || !player.alive) return;
+    room.ready.add(player.id);
+    broadcast(room);
+    maybeAdvance(room);
+  });
+
   socket.on('play-again', () => {
     if (!room || room.hostId !== player.id || room.phase !== 'over') return;
     room.phase = 'lobby';
     room.day = 0;
     room.winner = null;
     room.announcement = null;
+    room.event = null;
+    room.voteResult = null;
     room.history = [];
     for (const p of room.players.values()) {
       p.role = null;

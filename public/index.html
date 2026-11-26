@@ -8,15 +8,17 @@
 <style>
   :root { --bg:#120b1f; --card:#1e1431; --line:#35264f; --txt:#efe9fa; --mut:#9d8fb8; --red:#e0344f; --grn:#3fb27f; --gold:#e6b84a; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh; }
-  #app { max-width:480px; margin:0 auto; padding:16px 16px 40px; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh; transition:background-color 1.2s; overflow-x:hidden; }
+  body.night { background:#07040e; }
+  #app { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:16px 16px 40px; }
   h1 { font-size:28px; text-align:center; margin:24px 0 4px; }
   h2 { font-size:20px; margin:0 0 10px; }
   .sub { color:var(--mut); text-align:center; margin-bottom:20px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   input[type=text] { width:100%; padding:14px; font-size:18px; border-radius:10px; border:1px solid var(--line); background:#150d24; color:var(--txt); margin:6px 0; }
   input.code { text-transform:uppercase; letter-spacing:6px; text-align:center; font-size:24px; }
-  button { width:100%; padding:14px; font-size:17px; font-weight:600; border:0; border-radius:10px; background:var(--red); color:#fff; margin:6px 0; cursor:pointer; }
+  button { width:100%; padding:14px; font-size:17px; font-weight:600; border:0; border-radius:10px; background:var(--red); color:#fff; margin:6px 0; cursor:pointer; transition:transform .1s, opacity .2s; }
+  button:active:not(:disabled) { transform:scale(.97); }
   button.sec { background:#3a2b57; }
   button:disabled { opacity:.4; }
   .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -27,27 +29,123 @@
   .mut { color:var(--mut); font-size:14px; }
   .player { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
   .player:last-child { border-bottom:0; }
-  .dead { opacity:.45; text-decoration:line-through; }
+  .dead { opacity:.5; }
+  .dead .pname { text-decoration:line-through; }
   .off { opacity:.5; }
   .choice { text-align:left; background:#2b1f45; border:2px solid transparent; }
-  .choice.sel { border-color:var(--gold); }
-  .choice.vamp { border-color:var(--red); }
+  .choice.sel { border-color:var(--gold); box-shadow:0 0 14px #e6b84a44; }
   .stepper { display:flex; align-items:center; gap:12px; }
   .stepper button { width:48px; margin:0; background:#3a2b57; }
   .stepper b { font-size:24px; min-width:30px; text-align:center; }
-  .role { text-align:center; padding:30px 10px; user-select:none; -webkit-user-select:none; touch-action:none; }
-  .role .name { font-size:34px; font-weight:800; }
   .vamp-txt { color:var(--red); } .good-txt { color:var(--grn); }
-  .night { background:#07040e; }
   .ann { background:#2a1830; border-color:#5a2a4a; font-size:18px; }
+  .ann.kill { border-color:var(--red); box-shadow:0 0 22px #e0344f44; }
+  .ann.saved { border-color:var(--grn); box-shadow:0 0 22px #3fb27f44; }
   .timer { font-size:30px; font-weight:800; text-align:center; font-variant-numeric:tabular-nums; }
-  .err { position:fixed; left:12px; right:12px; top:12px; background:var(--red); padding:12px; border-radius:10px; z-index:10; text-align:center; }
+  .timer.small { font-size:18px; color:var(--mut); }
+  .err { position:fixed; left:12px; right:12px; top:12px; background:var(--red); padding:12px; border-radius:10px; z-index:50; text-align:center; }
   label.chk { display:flex; align-items:center; gap:10px; padding:8px 0; }
   label.chk input { width:22px; height:22px; }
   .hist div { padding:3px 0; font-size:14px; color:var(--mut); }
+  .logo { display:inline-block; animation:float 3s ease-in-out infinite; }
+
+  /* --- rol kartı (basılı tutunca döner) --- */
+  .rolewrap { perspective:800px; margin:12px 0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none; }
+  .flipper { position:relative; height:165px; transition:transform .45s; transform-style:preserve-3d; cursor:pointer; }
+  .flipper.flipped { transform:rotateY(180deg); }
+  .face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; background:var(--card); border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:12px; }
+  .face .name { font-size:32px; font-weight:800; }
+  .face.back { transform:rotateY(180deg); }
+  .face.back.vamp { border-color:var(--red); box-shadow:0 0 26px #e0344f55; }
+  .face.back.good { border-color:var(--grn); box-shadow:0 0 20px #3fb27f33; }
+
+  /* --- oylama sonucu --- */
+  .vrow .cnt { font-weight:800; }
+  .barwrap { height:12px; background:#150d24; border-radius:99px; overflow:hidden; margin:8px 0; }
+  .bar { height:100%; width:var(--w); background:linear-gradient(90deg,#9b2340,var(--red)); border-radius:99px; }
+  .vrow.out-row { border-color:var(--red); box-shadow:0 0 18px #e0344f44; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { background:#3a2b57; border-radius:99px; padding:3px 10px; font-size:14px; }
+  .verdict { padding:0; background:transparent; border:0; perspective:800px; }
+  .flipcard { position:relative; height:150px; }
+  .flipcard .inner { position:absolute; inset:0; transform-style:preserve-3d; }
+  .flipcard .rev, .flipcard .hid { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:var(--card); border:2px solid var(--line); }
+  .flipcard .hid { transform:rotateY(180deg); font-size:60px; background:#2a1830; }
+  .flipcard .rev.vamp { border-color:var(--red); box-shadow:0 0 26px #e0344f66; }
+  .flipcard .rev.good { border-color:var(--grn); box-shadow:0 0 20px #3fb27f44; }
+  .flipcard .rev .name { font-size:28px; font-weight:800; }
+  .flipcard .rev .rolebig { font-size:22px; font-weight:700; margin-top:4px; }
+  .nokill { text-align:center; padding:24px; background:var(--card); border:1px solid var(--line); border-radius:14px; font-size:20px; }
+
+  /* --- arka plan: gece yıldızları ve yarasalar --- */
+  #ambient { position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0; transition:opacity 1.5s; overflow:hidden; }
+  body.night #ambient { opacity:1; }
+  .star { position:absolute; width:3px; height:3px; border-radius:50%; background:#fff; animation:twinkle 3s ease-in-out infinite; }
+  .bat { position:absolute; font-size:26px; left:-60px; animation:fly 14s linear infinite; }
+
+  /* --- tam ekran efektler --- */
+  .fx { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; animation:fadeIn .3s both; padding:20px; }
+  .fx.out { animation:fadeOut .5s both; }
+  .fx.tap { pointer-events:auto; cursor:pointer; }
+  .fx.night-fx { background:radial-gradient(circle at 50% 35%, #2b2060, #05030c 70%); }
+  .fx.day-fx { background:radial-gradient(circle at 50% 30%, #6b4a1c, #1a0f12 75%); }
+  .fx.vote-fx { background:#150d24ee; }
+  .fx.death-fx { background:radial-gradient(circle at 50% 40%, #6e0d1f, #12030a 75%); animation:fadeIn .3s both, shake .6s .2s; }
+  .fx .moon { font-size:96px; animation:rise 1.4s ease-out both; filter:drop-shadow(0 0 30px #aab4ff); }
+  .fx .sun { font-size:96px; animation:spin 6s linear infinite, pop .6s both; filter:drop-shadow(0 0 30px #ffb94a); }
+  .fx .ftitle { font-size:32px; font-weight:800; margin-top:12px; animation:slideUp .6s .3s both; }
+  .fx .fsub { color:var(--mut); font-size:18px; margin-top:6px; animation:slideUp .6s .5s both; }
+  .fx .skull { font-size:110px; animation:skull 1s cubic-bezier(.2,1.4,.4,1) both; filter:drop-shadow(0 0 24px #ff2d55); }
+  .fx .dtitle { font-size:48px; font-weight:900; letter-spacing:6px; color:#ff4d6a; margin-top:8px; animation:slideUp .6s .5s both, glitch 1.2s 1s infinite; }
+  .fx .dsub { font-size:18px; color:#f3c4cc; margin-top:8px; animation:slideUp .6s .8s both; }
+  .fx .dhint { font-size:14px; color:#b98a93; margin-top:26px; animation:fadeIn .6s 2s both, pulse 1.6s 2s infinite; }
+  .drip { position:absolute; top:0; width:10px; border-radius:0 0 10px 10px; background:linear-gradient(#b3122e,#e0344f); animation:drip 3s ease-in both; }
+  .confetti { position:fixed; inset:0; z-index:30; pointer-events:none; overflow:hidden; }
+  .confetti span { position:absolute; top:-40px; animation:fall linear both; }
+
+  /* --- sahne animasyonları (sadece yeni ekran açılınca oynar) --- */
+  .anim > .card, .anim > h1, .anim > .sub, .anim > button, .anim > .rolewrap, .anim > .verdict { animation:slideUp .5s both; }
+  .anim > :nth-child(2) { animation-delay:.08s; } .anim > :nth-child(3) { animation-delay:.16s; }
+  .anim > :nth-child(4) { animation-delay:.24s; } .anim > :nth-child(5) { animation-delay:.32s; }
+  .anim > .ann { animation:pop .6s .1s both; }
+  .anim .player { animation:slideUp .4s both; }
+  .anim .player:nth-child(2){animation-delay:.05s} .anim .player:nth-child(3){animation-delay:.1s}
+  .anim .player:nth-child(4){animation-delay:.15s} .anim .player:nth-child(5){animation-delay:.2s}
+  .anim .player:nth-child(6){animation-delay:.25s} .anim .player:nth-child(n+7){animation-delay:.3s}
+  .anim > .vrow { animation:slideUp .5s var(--d) both; }
+  .anim .bar { animation:grow 1s calc(var(--d) + .2s) cubic-bezier(.2,.9,.3,1) both; }
+  .anim .chip { animation:pop .35s var(--d) both; }
+  .anim > .verdict { animation:slideUp .5s var(--d) both; }
+  .anim .verdict .inner { animation:flipIn 1s calc(var(--d) + .4s) cubic-bezier(.3,1.3,.5,1) both; }
+  .anim > .nokill { animation:pop .6s var(--d) both; }
+  .anim .winner { animation:bounce 1s .2s both; }
+
+  @keyframes slideUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  @keyframes pop { 0% { opacity:0; transform:scale(.6); } 70% { transform:scale(1.08); } 100% { opacity:1; transform:none; } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+  @keyframes grow { from { width:0; } to { width:var(--w); } }
+  @keyframes flipIn { from { transform:rotateY(180deg); } to { transform:rotateY(0); } }
+  @keyframes shake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-14px); } 40% { transform:translateX(12px); } 60% { transform:translateX(-8px); } 80% { transform:translateX(6px); } }
+  @keyframes skull { 0% { transform:translateY(-300px) scale(.4) rotate(-40deg); opacity:0; } 60% { opacity:1; } 100% { transform:none; } }
+  @keyframes drip { from { height:0; } to { height:var(--h); } }
+  @keyframes glitch { 0%,90%,100% { transform:none; text-shadow:none; } 92% { transform:translateX(-5px); text-shadow:3px 0 #0ff,-3px 0 #f0f; } 96% { transform:translateX(5px); text-shadow:-3px 0 #0ff,3px 0 #f0f; } }
+  @keyframes pulse { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+  @keyframes rise { from { transform:translateY(160px) scale(.5); opacity:0; } to { transform:none; opacity:1; } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes float { 0%,100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-8px) rotate(4deg); } }
+  @keyframes twinkle { 0%,100% { opacity:.15; } 50% { opacity:1; } }
+  @keyframes fly { 0% { transform:translate(0,0) rotate(0); } 25% { transform:translate(30vw,-30px) rotate(8deg); } 50% { transform:translate(65vw,20px) rotate(-6deg); } 100% { transform:translate(120vw,-20px) rotate(4deg); } }
+  @keyframes fall { to { transform:translateY(115vh) rotate(540deg); } }
+  @keyframes bounce { 0% { transform:scale(.3); opacity:0; } 50% { transform:scale(1.2); opacity:1; } 70% { transform:scale(.92); } 100% { transform:none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.01s !important; animation-delay:0s !important; transition-duration:.01s !important; }
+  }
 </style>
 </head>
 <body>
+<div id="ambient"></div>
 <div id="app"></div>
 <div id="err" class="err" style="display:none"></div>
 <script src="/socket.io/socket.io.js"></script>
@@ -60,10 +158,86 @@ let holding = false;     // rol gösterme tuşu basılı mı
 let timerEl = null;
 let joinMode = 'menu';
 let lastPhaseKey = '';
+let fresh = false;       // yeni sahne mi (animasyon oynasın mı)
+let lastEventId = null;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const A = () => (fresh ? 'anim' : '');
 const save = (token, code) => localStorage.setItem('vk', JSON.stringify({ token, code }));
 const load = () => { try { return JSON.parse(localStorage.getItem('vk')); } catch { return null; } };
+const vib = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
+
+// ---- arka plan: yıldızlar + yarasalar ----
+(function ambient() {
+  const a = document.getElementById('ambient');
+  let h = '';
+  for (let i = 0; i < 40; i++) h += `<span class="star" style="left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${(Math.random()*3).toFixed(2)}s;transform:scale(${(0.5+Math.random()).toFixed(2)})"></span>`;
+  [[12,0],[30,5],[55,9],[75,2]].forEach(([top, d]) => (h += `<span class="bat" style="top:${top}%;animation-delay:${d}s;animation-duration:${12+d}s">🦇</span>`));
+  a.innerHTML = h;
+})();
+
+// ---- tam ekran efektler ----
+function clearFx() { document.querySelectorAll('.fx').forEach((e) => e.remove()); }
+function fx(html, cls, ms, tap) {
+  clearFx();
+  const el = document.createElement('div');
+  el.className = 'fx ' + cls + (tap ? ' tap' : '');
+  el.innerHTML = html;
+  document.body.appendChild(el);
+  const close = () => { if (!el.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 500); };
+  if (tap) el.addEventListener('click', close);
+  setTimeout(close, ms);
+}
+function nightFx() {
+  fx('<div class="moon">🌙</div><div class="ftitle">Gece çöktü</div><div class="fsub">Gözlerini kapat…</div>', 'night-fx', 2300);
+  vib(120);
+}
+function voteFx() {
+  fx('<div class="ftitle">🗳️ Oylama zamanı</div><div class="fsub">Şüphelendiğin kişiyi seç</div>', 'vote-fx', 1500);
+}
+function dawnFx(ev, victim) {
+  let line = 'Gece sessiz geçti, kimse ölmedi.';
+  if (ev.type === 'kill' && victim) line = `⚰️ ${esc(victim.name)} öldü`;
+  if (ev.type === 'saved') line = '🛡️ Doktor birini kurtardı!';
+  fx(`<div class="sun">☀️</div><div class="ftitle">Gün doğdu</div><div class="fsub">${line}</div>`, 'day-fx', 3000);
+  vib(ev.type === 'kill' ? [80, 60, 200] : 60);
+}
+function deathFx(kind) {
+  let drips = '';
+  for (let i = 0; i < 14; i++) drips += `<span class="drip" style="left:${(i * 7.3 + Math.random() * 4).toFixed(1)}%;--h:${(80 + Math.random() * 260).toFixed(0)}px;animation-delay:${(0.2 + Math.random() * 1.2).toFixed(2)}s;animation-duration:${(2 + Math.random() * 2).toFixed(1)}s"></span>`;
+  const sub = kind === 'night' ? 'Vampirler seni geceleyin yakaladı…' : 'Köy seni oylayıp eledi…';
+  fx(`${drips}<div class="skull">💀</div><div class="dtitle">ÖLDÜN</div><div class="dsub">${sub}<br>Artık sessizce izleyebilirsin.</div><div class="dhint">devam etmek için dokun</div>`, 'death-fx', 7000, true);
+  vib([300, 100, 300, 100, 700]);
+}
+function confetti(winner) {
+  const set = winner === 'village' ? ['🎉', '✨', '🌟', '🏘️', '🎊'] : ['🦇', '🩸', '🧛', '🌑', '🦇'];
+  const c = document.createElement('div');
+  c.className = 'confetti';
+  let h = '';
+  for (let i = 0; i < 40; i++) h += `<span style="left:${Math.random()*100}%;font-size:${18+Math.random()*18|0}px;animation-duration:${(3+Math.random()*3).toFixed(1)}s;animation-delay:${(Math.random()*1.5).toFixed(2)}s">${set[i % set.length]}</span>`;
+  c.innerHTML = h;
+  document.body.appendChild(c);
+  setTimeout(() => c.remove(), 8000);
+  vib([100, 50, 100, 50, 300]);
+}
+
+// ---- durum geçişlerine göre animasyon seç ----
+function transitions(prev, st) {
+  const ev = st.event;
+  if (!prev) { lastEventId = ev ? ev.id : 0; return; } // sayfa yenilenince eski olayı tekrar oynatma
+  const eventNew = ev && ev.id !== lastEventId;
+  if (ev) lastEventId = ev.id;
+  const victim = ev && ev.victimId ? st.players.find((p) => p.id === ev.victimId) : null;
+  const nightEvent = ev && ['kill', 'saved', 'quiet'].includes(ev.type);
+  let shown = false;
+
+  if (eventNew && victim && victim.id === st.me.id) { deathFx(ev.type === 'kill' ? 'night' : 'vote'); shown = true; }
+  else if (eventNew && nightEvent) { dawnFx(ev, victim); shown = true; }
+  else if (fresh && st.phase === 'night') { nightFx(); shown = true; }
+  else if (fresh && st.phase === 'vote') { voteFx(); shown = true; }
+
+  if (fresh && st.phase === 'over') setTimeout(() => confetti(st.winner), shown ? 2500 : 200);
+}
 
 function tryRejoin() {
   const s = load();
@@ -73,9 +247,14 @@ socket.on('connect', tryRejoin);
 socket.on('rejoin-failed', () => { localStorage.removeItem('vk'); S = null; render(); });
 socket.on('joined', ({ token, code }) => save(token, code));
 socket.on('state', (st) => {
+  const prev = S;
   const key = st.phase + ':' + st.day;
-  if (key !== lastPhaseKey) { sel = null; holding = false; lastPhaseKey = key; if (navigator.vibrate && st.phase !== 'lobby') navigator.vibrate(200); }
-  S = st; render();
+  fresh = key !== lastPhaseKey;
+  if (fresh) { sel = null; holding = false; lastPhaseKey = key; }
+  if (st.phase === 'lobby') clearFx();
+  transitions(prev, st);
+  S = st;
+  render();
 });
 socket.on('err', (m) => {
   const e = document.getElementById('err');
@@ -88,7 +267,7 @@ const emit = (ev, d) => socket.emit(ev, d);
 function renderJoin() {
   const name = (document.getElementById('name') || {}).value || localStorage.getItem('vk-name') || '';
   app.innerHTML = `
-    <h1>🧛 Vampir Köylü</h1>
+    <h1><span class="logo">🧛</span> Vampir Köylü</h1>
     <div class="sub">Moderatörsüz, telefondan oyna</div>
     <div class="card">
       <input type="text" id="name" placeholder="İsmin" maxlength="14" value="${esc(name)}">
@@ -106,18 +285,17 @@ function nm() { const v = document.getElementById('name').value; localStorage.se
 function doCreate() { emit('create', { name: nm() }); }
 function doJoin() { emit('join', { name: nm(), code: document.getElementById('code').value }); }
 
-function playerList(players, opts = {}) {
+function playerList(players) {
   return players.map((p) => `
     <div class="player ${p.alive ? '' : 'dead'} ${p.connected ? '' : 'off'}">
-      <span>${esc(p.name)}${p.id === S.me.id ? ' (sen)' : ''}${p.connected ? '' : ' 📴'}</span>
-      <span>${p.roleName ? `<span class="pill ${p.role === 'vampire' ? 'vamp-txt' : ''}">${p.roleName}</span>` : ''}${opts.host === p.id ? ' <span class="pill host">kurucu</span>' : ''}</span>
+      <span>${p.alive ? '' : '💀 '}<span class="pname">${esc(p.name)}</span>${p.id === S.me.id ? ' (sen)' : ''}${p.connected ? '' : ' 📴'}</span>
+      <span>${p.roleName ? `<span class="pill ${p.role === 'vampire' ? 'vamp-txt' : ''}">${p.roleName}</span>` : ''}</span>
     </div>`).join('');
 }
 
 function renderLobby() {
   const s = S.settings, n = S.players.length, h = S.me.isHost;
-  const hostId = (S.players.find((p) => false) || {}).id;
-  app.innerHTML = `
+  app.innerHTML = `<div class="${A()}">
     <h1>Oda kodu</h1>
     <div class="big">${S.code}</div>
     <div class="sub">Arkadaşların bu kodla katılsın</div>
@@ -146,7 +324,7 @@ function renderLobby() {
     </div>
     ${h ? `<button onclick="emit('start')" ${n < S.minPlayers ? 'disabled' : ''}>${n < S.minPlayers ? `En az ${S.minPlayers} kişi gerekli` : 'Oyunu başlat'}</button>`
         : '<div class="center mut">Kurucunun oyunu başlatması bekleniyor…</div>'}
-    <button class="sec" onclick="leave()">Odadan çık</button>`;
+    <button class="sec" onclick="leave()">Odadan çık</button></div>`;
 }
 function setS(o) { emit('settings', o); }
 function leave() { emit('leave'); localStorage.removeItem('vk'); S = null; joinMode = 'menu'; render(); }
@@ -159,25 +337,32 @@ function roleCard() {
     doctor: 'Her gece birini koru (kendini de seçebilirsin).',
     seer: 'Her gece birine bak: vampir mi değil mi öğren.',
   }[r];
-  return `<div class="card role" id="rolecard" ontouchstart="peek(true)" ontouchend="peek(false)" ontouchcancel="peek(false)" onmousedown="peek(true)" onmouseup="peek(false)" onmouseleave="peek(false)">
-    ${holding
-      ? `<div class="mut">Rolün</div><div class="name ${r === 'vampire' ? 'vamp-txt' : 'good-txt'}">${S.me.roleName}</div><div class="mut" style="margin-top:8px">${txt}</div>`
-      : `<div class="name">🂠</div><div class="mut">Rolünü görmek için basılı tut</div>`}
-  </div>`;
+  return `<div class="rolewrap"><div class="flipper ${holding ? 'flipped' : ''}" id="rolecard"
+      ontouchstart="peek(true,event)" ontouchend="peek(false,event)" ontouchcancel="peek(false,event)"
+      onmousedown="peek(true,event)" onmouseup="peek(false,event)" onmouseleave="peek(false,event)" oncontextmenu="return false">
+    <div class="face front"><div class="name">🂠</div><div class="mut">Rolünü görmek için basılı tut</div></div>
+    <div class="face back ${r === 'vampire' ? 'vamp' : 'good'}"><div class="mut">Rolün</div>
+      <div class="name ${r === 'vampire' ? 'vamp-txt' : 'good-txt'}">${S.me.roleName}</div>
+      <div class="mut" style="margin-top:6px">${txt}</div></div>
+  </div></div>`;
 }
-function peek(v) { holding = v; const c = document.getElementById('rolecard'); if (c) { const w = c.outerHTML; c.outerHTML = roleCard(); } }
+function peek(v, e) {
+  if (e && e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+  holding = v;
+  const c = document.getElementById('rolecard');
+  if (c) c.classList.toggle('flipped', v);
+}
 
 function targets() {
   return S.players.filter((p) => p.alive && !(S.me.role === 'seer' && p.id === S.me.id) && !(S.me.role === 'vampire' && p.role === 'vampire'));
 }
 
 function renderNight() {
-  document.body.classList.add('night');
   const me = S.me;
-  let html = `<h1>🌙 Gece ${S.day}</h1><div class="sub">Herkes gözlerini kapatsın, telefonunuza bakın</div>`;
+  let html = `<div class="${A()}"><h1>🌙 Gece ${S.day}</h1><div class="sub">Herkes gözlerini kapatsın, telefonunuza bakın</div>`;
   html += roleCard();
   if (!me.alive) {
-    html += `<div class="card center">☠️ Öldün. Geceyi izliyorsun.</div>`;
+    html += `<div class="card center">💀 Öldün. Geceyi izliyorsun.</div>`;
   } else {
     const prompt = { vampire: 'Bu gece kimi öldürelim?', doctor: 'Bu gece kimi koruyorsun?', seer: 'Kimin vampir olup olmadığına bakmak istiyorsun?', villager: 'Uyuyorsun… (rolün olmasa da birini seç ki kimse anlamasın)' }[me.role];
     const done = S.night.done;
@@ -196,7 +381,7 @@ function renderNight() {
     }
   }
   if (me.role === 'seer' && me.seerResults && me.seerResults.length) html += seerCard();
-  app.innerHTML = html;
+  app.innerHTML = html + '</div>';
 }
 function pick(id) { sel = id; render(); }
 
@@ -205,26 +390,31 @@ function seerCard() {
     `<div>Gece ${r.day}: ${esc(r.name)} → <b class="${r.vampire ? 'vamp-txt' : 'good-txt'}">${r.vampire ? 'VAMPİR' : 'Vampir değil'}</b></div>`).join('') + '</div>';
 }
 
-function annCard() { return S.announcement ? `<div class="card ann">${esc(S.announcement)}</div>` : ''; }
+function annCard() {
+  if (!S.announcement) return '';
+  const t = S.event && S.event.type;
+  const cls = t === 'kill' || t === 'vote-out' ? 'kill' : t === 'saved' ? 'saved' : '';
+  return `<div class="card ann ${cls}">${esc(S.announcement)}</div>`;
+}
 
 function renderDay() {
   const me = S.me;
-  let html = `<h1>☀️ Gün ${S.day}</h1>${annCard()}
+  let html = `<div class="${A()}"><h1>☀️ Gün ${S.day}</h1>${annCard()}
     <div class="card center"><div class="mut">Tartışma — yüz yüze konuşun!</div><div class="timer" id="timer"></div></div>`;
   html += roleCard();
   if (me.role === 'seer' && me.seerResults.length) html += seerCard();
   if (me.alive) {
     html += `<button class="sec" ${S.skippedByMe ? 'disabled' : ''} onclick="emit('skip-discussion')">${S.skippedByMe ? 'Oylama için hazırsın' : 'Oylamaya geçelim'} (${S.skipCount}/${S.needed})</button>`;
-  } else html += `<div class="card center">☠️ Elendin. Sessizce izle, ipucu verme.</div>`;
+  } else html += `<div class="card center">💀 Öldün. Sessizce izle, ipucu verme.</div>`;
   html += `<div class="card"><h2>Oyuncular</h2>${playerList(S.players)}</div>`;
-  app.innerHTML = html;
+  app.innerHTML = html + '</div>';
 }
 
 function renderVote() {
   const me = S.me;
-  let html = `<h1>🗳️ Oylama</h1>${annCard()}`;
+  let html = `<div class="${A()}"><h1>🗳️ Oylama</h1><div class="timer small" id="timer"></div>`;
   html += roleCard();
-  if (!me.alive) html += `<div class="card center">☠️ Elendin, oy veremezsin.</div>`;
+  if (!me.alive) html += `<div class="card center">💀 Elendin, oy veremezsin.</div>`;
   else if (S.vote.mine) {
     html += `<div class="card center">✔ Oyun alındı.<br><span class="mut">Diğerleri bekleniyor…</span></div>`;
   } else {
@@ -234,24 +424,54 @@ function renderVote() {
        <button ${sel ? '' : 'disabled'} onclick="emit('vote',{target:sel})">Oyu onayla</button></div>`;
   }
   html += `<div class="center mut">${S.vote.count}/${S.vote.total} kişi oy verdi</div>`;
-  app.innerHTML = html;
+  app.innerHTML = html + '</div>';
+}
+
+function renderResult() {
+  const R = S.voteResult;
+  const total = R.rows.reduce((a, r) => a + r.voters.length, 0) + R.skipVoters.length || 1;
+  const row = (title, voters, i, out) => `
+    <div class="card vrow ${out ? 'out-row' : ''}" style="--d:${(i * 0.6).toFixed(2)}s">
+      <div class="row"><b>${esc(title)}</b><span class="cnt">${voters.length} oy</span></div>
+      <div class="barwrap"><div class="bar" style="--w:${(voters.length / total * 100).toFixed(0)}%"></div></div>
+      <div class="chips">${voters.map((v, j) => `<span class="chip" style="--d:${(i * 0.6 + 0.3 + j * 0.15).toFixed(2)}s">${esc(v)}</span>`).join('')}</div>
+    </div>`;
+  let html = `<div class="${A()}"><h1>⚖️ Oylama sonucu</h1>`;
+  R.rows.forEach((r, i) => (html += row(r.name, r.voters, i, r.id === R.victimId)));
+  let n = R.rows.length;
+  if (R.skipVoters.length) html += row('Kimseyi eleme', R.skipVoters, n++, false);
+  const d = (n * 0.6 + 0.5).toFixed(2);
+  const v = S.players.find((p) => p.id === R.victimId);
+  if (v) {
+    html += `<div class="card verdict" style="--d:${d}s"><div class="flipcard"><div class="inner">
+      <div class="rev ${v.role === 'vampire' ? 'vamp' : 'good'}"><div class="mut">Köy tarafından elendi</div><div class="name">${esc(v.name)}</div><div class="rolebig ${v.role === 'vampire' ? 'vamp-txt' : 'good-txt'}">${v.roleName}</div></div>
+      <div class="hid">❓</div></div></div></div>`;
+  } else {
+    html += `<div class="nokill" style="--d:${d}s">🕊️ ${esc(R.text)}</div>`;
+  }
+  if (S.me.alive) {
+    html += `<button ${S.ready.mine ? 'disabled' : ''} onclick="emit('continue')">${S.ready.mine ? 'Diğerleri bekleniyor…' : 'Devam'} (${S.ready.count}/${S.ready.total})</button>`;
+  } else html += `<div class="center mut" style="margin-top:10px">Oyun devam ediyor…</div>`;
+  html += `<div class="timer small" id="timer"></div>`;
+  app.innerHTML = html + '</div>';
 }
 
 function renderOver() {
   const w = S.winner === 'village';
-  let html = `<h1>${w ? '🏘️ Köy kazandı!' : '🧛 Vampirler kazandı!'}</h1>${annCard()}
+  let html = `<div class="${A()}"><h1 class="winner">${w ? '🏘️ Köy kazandı!' : '🧛 Vampirler kazandı!'}</h1>${annCard()}
     <div class="card"><h2>Roller</h2>${playerList(S.players)}</div>
     <div class="card hist"><h2>Oyun özeti</h2>${S.history.map((h) => `<div>${esc(h)}</div>`).join('')}</div>`;
   html += S.me.isHost ? `<button onclick="emit('play-again')">Tekrar oyna (aynı oda)</button>` : '<div class="center mut">Kurucu yeni oyunu başlatabilir.</div>';
-  app.innerHTML = html;
+  app.innerHTML = html + '</div>';
 }
 
 function render() {
-  document.body.classList.remove('night');
+  document.body.classList.toggle('night', !!S && S.phase === 'night');
   timerEl = null;
   if (!S) return renderJoin();
-  ({ lobby: renderLobby, night: renderNight, day: renderDay, vote: renderVote, over: renderOver }[S.phase])();
+  ({ lobby: renderLobby, night: renderNight, day: renderDay, vote: renderVote, result: renderResult, over: renderOver }[S.phase])();
   timerEl = document.getElementById('timer');
+  fresh = false; // animasyon sadece sahne ilk çizildiğinde oynasın
 }
 
 setInterval(() => {
